@@ -6,6 +6,8 @@
 
 用于 OpenList 获取部分网盘 API 的接口和页面
 
+除各网盘的 OAuth 接口外，还提供 [Ente 密码登录](#ente-密码登录)页面：密码与密钥派生全部在浏览器内完成，后端零配置。
+
 **部署地址：**
 [![全球站点](https://img.shields.io/badge/全球站点-api.oplist.org-2ea44f?style=for-the-badge)](https://api.oplist.org/)
 [![中国大陆](https://img.shields.io/badge/中国大陆-api.oplist.org.cn-1677ff?style=for-the-badge)](https://api.oplist.org.cn/)
@@ -352,6 +354,58 @@ https://api.oplist.org/<driver>/renewapi
 | 谷歌云盘 | 验证登录 | `googleui` | `googleui_go` | 客户端 ID | 客户端秘钥 | / |
 | Yandex | 验证登录 | `yandexui` | `yandexui_go` | AppID | AppKey | / |
 | Dropbox | 验证登录 | `dropboxs` | `dropboxs_go` | AppID | AppKey | / |
+| Ente | 密码登录 | `ente` | `ente` | / | / | / |
+
+> Ente 走纯浏览器登录，不使用上面的后端接口，`client_uid` / `client_key` 均不需要，详见 [Ente 密码登录](#ente-密码登录)。
+
+---
+
+## Ente 密码登录
+
+Ente 驱动只需要长期凭证，而登录用到的 SRP-4096 + argon2id 派生无法在 Cloudflare Workers（128MB 内存上限）里完成，因此这一步放在本仓库的页面上：**密码与全部解密只在浏览器内进行**，浏览器直连用户填写的 ente endpoint（museum 允许跨域），后端不新增任何路由，也**不需要任何新的环境变量**。
+
+用法：在驱动下拉中选择 **Ente (密码登录)**，填写邮箱、密码与 API 地址（默认 `https://api.ente.com`，自托管填自己的 museum 地址），点击登录。
+
+| 能力 | 说明 |
+| --- | --- |
+| 密码登录 | SRP-4096 + SHA-256，`srpM2` 必须校验通过才继续 |
+| 两步验证 | 支持 TOTP（6 位验证码） |
+| 邮箱验证码 | 账号无 SRP verifier 或开启了 email MFA 时自动改走邮箱 OTP |
+| passkey | 仅 passkey 的账号暂不支持并给出明确提示；passkey 与 TOTP 同时开启的账号走 TOTP |
+
+登录成功后页面给出三个字段，直接填入 OpenList-Worker 的 `ente` 驱动：
+
+| 字段 | 说明 |
+| --- | --- |
+| `token` | base64url 字符串，原样填入 |
+| `master_key` | base64 编码，原样填入 |
+| `secret_key` | base64 编码，可选，原样填入 |
+
+同时请在 Worker 侧把 `endpoint` 填成与页面相同的地址，`show_hidden` 按需开启。凭证无绝对有效期，**365 天未被使用才会过期**，由 Worker 驱动定期使用即可保活；失效后重新走一次本页面即可。
+
+> 密码与派生密钥不会发往本项目后端，也不会写入 localStorage / cookie / 日志，流程结束或出错即从内存清除。
+
+### 依赖与许可
+
+argon2id 使用 [hash-wasm](https://github.com/Daninet/hash-wasm)（WASM），blake2b 使用 [@noble/hashes](https://github.com/paulmillr/noble-hashes)，secretbox / sealed box 使用 [tweetnacl](https://github.com/dchest/tweetnacl-js)，均为 MIT 或公有领域。SRP 部分按 ente server 实际使用的 [`github.com/ente/go-srp`](https://github.com/ente/go-srp)（MIT）的 SRP-6a 语义用 TypeScript 自实现（哈希输入按 group 大小左填充，见 `frontend/src/lib/ente/crypto.ts`），**未复制 ente（AGPL-3.0）的任何代码或 WASM 产物**；golden 向量由运行该 Go 库生成，非复制其源码。
+
+### 开发与验证
+
+```bash
+cd frontend
+npm test          # crypto / client / login 单测（node:test 固定向量）
+npm run typecheck
+```
+
+对真实账号的冒烟脚本（手动运行，不进入 CI，凭证只经环境变量注入；**在仓库根目录执行**，脚本由根 `package.json` 提供）：
+
+```bash
+ENTE_EMAIL=you@example.com ENTE_PASSWORD='...' npm run test-ente
+```
+
+（等价于 `node --experimental-strip-types scripts/test-ente-login.mjs`；未提供 `ENTE_EMAIL` / `ENTE_PASSWORD` 时脚本直接跳过并以 0 退出，因此不会影响 CI。）
+
+可用 `ENTE_API` 覆盖 endpoint，`ENTE_OTP` / `ENTE_TOTP` 传入验证码以免交互输入；脚本会打印可直接粘贴进 Worker `ente` 驱动的四个字段。
 
 ---
 

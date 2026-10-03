@@ -5,10 +5,11 @@ import { EyeInvisibleOutlined, EyeOutlined, KeyOutlined, LoginOutlined, ReloadOu
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import CopyableField from '../components/CopyableField'
+import EnteLoginForm from '../components/EnteLoginForm'
 import QRLoginModal, { type QRType, type QRSuccessResult } from '../components/QRLoginModal'
 import GoogleConsentModal from '../components/GoogleConsentModal'
 import { useTheme } from '../theme/ThemeContext'
-import { DRIVERS, DEFAULT_DRIVER, isBaidu, isCredentialHidden, isOnedrive, isPds, isServerUseForcedOff, isServerUseForcedOn, PDS_DEFAULT_CLIENT_ID, PDS_DEFAULT_DEVICE_NAME } from '../lib/drivers'
+import { DRIVERS, DEFAULT_DRIVER, isBaidu, isCredentialHidden, isOnedrive, isPds, isEnte, isServerUseForcedOff, isServerUseForcedOn, PDS_DEFAULT_CLIENT_ID, PDS_DEFAULT_DEVICE_NAME } from '../lib/drivers'
 import {
   requestLogin,
   requestRefresh,
@@ -97,6 +98,7 @@ export default function TokenPage() {
   const baidu = isBaidu(driver)
   const onedrive = isOnedrive(driver)
   const pds = isPds(driver)
+  const ente = isEnte(driver)
   const serverUseForcedOff = isServerUseForcedOff(driver)
   const serverUseForcedOn = isServerUseForcedOn(driver)
   const serverUseDisabled = serverUseForcedOff || serverUseForcedOn
@@ -379,6 +381,8 @@ export default function TokenPage() {
 
   const handleGetToken = useCallback(
     async (refresh = false) => {
+      if (ente) return
+
       // 阿里云 PDS 设备授权登录
       if (pds) {
         if (refresh) await refreshPdsToken()
@@ -464,7 +468,7 @@ export default function TokenPage() {
         setLoginLoading(false)
       }
     },
-    [driver, pds, serverUse, baidu, clientUid, clientKey, secretKey, refreshToken, buildPayload, message, t, handleError, refreshPdsToken, startPdsLogin],
+    [driver, pds, ente, serverUse, baidu, clientUid, clientKey, secretKey, refreshToken, buildPayload, message, t, handleError, refreshPdsToken, startPdsLogin],
   )
 
   const openPdsAuthUrl = useCallback(() => {
@@ -548,7 +552,7 @@ export default function TokenPage() {
                   listHeight={300}
                 />
 
-                {!pds && (
+                {!pds && !ente && (
                   <div className="field-row">
                     <div className="field-row__label">
                       <span>{t('credential.serverUse')}</span>
@@ -557,7 +561,7 @@ export default function TokenPage() {
                   </div>
                 )}
 
-                {!credentialHidden && (
+                {!credentialHidden && !ente && (
                   <>
                     {!baidu && (
                       <div className="field">
@@ -615,33 +619,38 @@ export default function TokenPage() {
                   </>
                 )}
 
-                <Divider />
+                {!ente && (
+                  <>
+                    <Divider />
 
-                <div className="field">
-                  <label className="field-label">{t('credential.actionTitle')}</label>
-                  <Space size={12} wrap>
-                    <Button
-                      type="primary"
-                      size="large"
-                      icon={<LoginOutlined />}
-                      loading={loginLoading}
-                      onClick={() => handleGetToken(false)}
-                      className="action-btn"
-                    >
-                      {t('credential.getToken')}
-                    </Button>
-                    <Button
-                      size="large"
-                      icon={<ReloadOutlined />}
-                      loading={refreshLoading}
-                      onClick={() => handleGetToken(true)}
-                      className="action-btn"
-                    >
-                      {t('credential.refreshToken')}
-                    </Button>
-                  </Space>
-                </div>
+                    <div className="field">
+                      <label className="field-label">{t('credential.actionTitle')}</label>
+                      <Space size={12} wrap>
+                        <Button
+                          type="primary"
+                          size="large"
+                          icon={<LoginOutlined />}
+                          loading={loginLoading}
+                          onClick={() => handleGetToken(false)}
+                          className="action-btn"
+                        >
+                          {t('credential.getToken')}
+                        </Button>
+                        <Button
+                          size="large"
+                          icon={<ReloadOutlined />}
+                          loading={refreshLoading}
+                          onClick={() => handleGetToken(true)}
+                          className="action-btn"
+                        >
+                          {t('credential.refreshToken')}
+                        </Button>
+                      </Space>
+                    </div>
+                  </>
+                )}
 
+                {ente && <EnteLoginForm />}
               </Card>
             </Col>
 
@@ -664,27 +673,31 @@ export default function TokenPage() {
                   )}
                 </div>
 
-                <div className="field">
-                  <label className="field-label">{t('credential.accessToken')}</label>
-                  <CopyableField
-                    value={accessToken}
-                    placeholder={t('credential.empty')}
-                    readOnly={!pds}
-                    onChange={pds ? setAccessToken : undefined}
-                    masked={pds && hideTokens}
-                  />
-                </div>
+                {!ente && (
+                  <>
+                    <div className="field">
+                      <label className="field-label">{t('credential.accessToken')}</label>
+                      <CopyableField
+                        value={accessToken}
+                        placeholder={t('credential.empty')}
+                        readOnly={!pds}
+                        onChange={pds ? setAccessToken : undefined}
+                        masked={pds && hideTokens}
+                      />
+                    </div>
 
-                <div className="field">
-                  <label className="field-label">{t('credential.refreshTokenLabel')}</label>
-                  <CopyableField
-                    value={refreshToken}
-                    placeholder={t('credential.empty')}
-                    readOnly={!pds}
-                    onChange={pds ? setRefreshToken : undefined}
-                    masked={pds && hideTokens}
-                  />
-                </div>
+                    <div className="field">
+                      <label className="field-label">{t('credential.refreshTokenLabel')}</label>
+                      <CopyableField
+                        value={refreshToken}
+                        placeholder={t('credential.empty')}
+                        readOnly={!pds}
+                        onChange={pds ? setRefreshToken : undefined}
+                        masked={pds && hideTokens}
+                      />
+                    </div>
+                  </>
+                )}
 
                 {pds && (
                   <>

@@ -29,6 +29,7 @@ export const DRIVERS: DriverOption[] = [
   { value: 'yandexui_go', i18nKey: 'driver.options.yandexui_go' },
   { value: 'dropboxs_go', i18nKey: 'driver.options.dropboxs_go' },
   { value: 'pds_go', i18nKey: 'driver.options.pds_go' },
+  { value: 'ente', i18nKey: 'driver.options.ente' },
 ]
 
 export const DEFAULT_DRIVER = 'onedrive_go'
@@ -74,4 +75,9 @@ export function isServerUseForcedOn(driver: string): boolean {
 /** 阿里云 PDS 设备授权登录 */
 export function isPds(driver: string): boolean {
   return driver === 'pds_go'
+}
+
+/** Ente 密码登录（纯浏览器端 SRP/OTP，不走服务端） */
+export function isEnte(driver: string): boolean {
+  return driver === 'ente'
 }

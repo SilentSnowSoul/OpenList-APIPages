@@ -11,7 +11,8 @@
     "deploy-eo": "edgeone pages deploy ./ -n edgeone-hono-app -t ",
     "cf-typegen": "wrangler types --env-interface CloudflareBindings",
     "build-web": "cd frontend && npm install --include=dev --no-audit --no-fund && npm run build",
-    "dev-web": "cd frontend && npm run dev"
+    "dev-web": "cd frontend && npm run dev",
+    "test-ente": "node --experimental-strip-types scripts/test-ente-login.mjs"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20250610.0",
